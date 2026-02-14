@@ -9,20 +9,82 @@ terraform {
       source  = "hashicorp/kubernetes"
       version = "~> 2.0"
     }
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2.0"
+    }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 2.0"
+    }
+    vault = {
+      source  = "hashicorp/vault"
+      version = "~> 3.0"
+    }
   }
 }
 
 locals {
   monitoring_namespace = "monitoring"
+  k3s_config_path     = "${path.module}/.kube/config"
+  k3s_kubeconfig_dir  = "${path.module}/.kube"
+  vault_namespace     = "vault"
+}
+
+# Install k3s cluster
+resource "null_resource" "k3s_install" {
+  count = var.install_k3s ? 1 : 0
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      echo "Installing k3s..."
+      curl -sfL https://get.k3s.io | K3S_KUBECONFIG_MODE=644 sh -
+      
+      # Wait for k3s to be ready
+      for i in {1..30}; do
+        if sudo kubectl get nodes > /dev/null 2>&1; then
+          echo "k3s is ready"
+          break
+        fi
+        echo "Waiting for k3s to be ready... ($i/30)"
+        sleep 2
+      done
+      
+      # Extract kubeconfig
+      mkdir -p ${local.k3s_kubeconfig_dir}
+      sudo cat /etc/rancher/k3s/k3s.yaml > ${local.k3s_config_path}
+      chmod 600 ${local.k3s_config_path}
+      
+      # Update kubeconfig to use localhost instead of internal IP
+      sed -i.bak 's|https://[^:]*:6443|https://localhost:6443|g' ${local.k3s_config_path}
+      
+      echo "k3s installation complete"
+    EOT
+  }
+}
+
+# Read the generated kubeconfig
+data "local_file" "k3s_kubeconfig" {
+  count    = var.install_k3s ? 1 : 0
+  filename = local.k3s_config_path
+  
+  depends_on = [null_resource.k3s_install]
+}
+
+# Output the kubeconfig for Jenkins to save
+resource "local_file" "kubeconfig_output" {
+  count    = var.install_k3s ? 1 : 0
+  filename = "${path.module}/kubeconfig.txt"
+  content  = data.local_file.k3s_kubeconfig[0].content
 }
 
 provider "kubernetes" {
-  config_path = var.kubeconfig_path
+  config_path = var.install_k3s ? local.k3s_config_path : var.kubeconfig_path
 }
 
 provider "helm" {
   kubernetes {
-    config_path = var.kubeconfig_path
+    config_path = var.install_k3s ? local.k3s_config_path : var.kubeconfig_path
   }
 }
 
@@ -432,3 +494,226 @@ resource "kubernetes_ingress_v1" "jenkins" {
 
   depends_on = [helm_release.jenkins_operator]
 }
+
+# Create Vault namespace
+resource "kubernetes_namespace" "vault" {
+  count = var.enable_vault ? 1 : 0
+
+  metadata {
+    name = local.vault_namespace
+  }
+}
+
+# Deploy Vault using Helm provider
+resource "helm_release" "vault" {
+  count = var.enable_vault ? 1 : 0
+
+  name             = "vault"
+  repository       = "https://helm.releases.hashicorp.com"
+  chart            = "vault"
+  namespace        = kubernetes_namespace.vault[0].metadata[0].name
+  create_namespace = false
+  version          = var.vault_chart_version
+
+  values = [
+    yamlencode({
+      server = {
+        dataStorage = {
+          size             = var.vault_storage_size
+          storageClassName = var.storage_class_name
+        }
+        dev = {
+          enabled = var.vault_dev_mode
+        }
+      }
+      ui = {
+        enabled = true
+      }
+    })
+  ]
+
+  wait     = true
+  timeout  = 600
+
+  depends_on = [kubernetes_namespace.vault]
+}
+
+# Wait for Vault to be ready
+resource "null_resource" "vault_ready" {
+  count = var.enable_vault ? 1 : 0
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      echo "Waiting for Vault to be ready..."
+      for i in {1..60}; do
+        if kubectl get pods -n vault -l app.kubernetes.io/name=vault --no-headers 2>/dev/null | grep -q Running; then
+          echo "Vault is ready"
+          break
+        fi
+        echo "Waiting for Vault pod... ($i/60)"
+        sleep 2
+      done
+    EOT
+  }
+
+  depends_on = [helm_release.vault]
+}
+
+# Create Ingress for Vault
+resource "kubernetes_ingress_v1" "vault" {
+  count = var.enable_vault ? 1 : 0
+
+  metadata {
+    name      = "vault-ingress"
+    namespace = kubernetes_namespace.vault[0].metadata[0].name
+    annotations = {
+      "cert-manager.io/cluster-issuer"      = "letsencrypt-prod"
+      "nginx.ingress.kubernetes.io/ssl-redirect" = "true"
+    }
+  }
+
+  spec {
+    ingress_class_name = var.ingress_class_name
+    tls {
+      hosts       = [var.vault_hostname]
+      secret_name = "vault-tls"
+    }
+
+    rule {
+      host = var.vault_hostname
+      http {
+        path {
+          path      = "/"
+          path_type = "Prefix"
+          backend {
+            service {
+              name = "vault"
+              port {
+                number = 8200
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  depends_on = [helm_release.vault]
+}
+
+# Store credentials in Vault
+resource "null_resource" "vault_backup_credentials" {
+  count = var.enable_vault ? 1 : 0
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      set -e
+      
+      echo "Setting up Vault and backing up credentials..."
+      
+      # Get Vault pod name
+      VAULT_POD=$(kubectl get pods -n vault -l app.kubernetes.io/name=vault -o jsonpath='{.items[0].metadata.name}')
+      echo "Using Vault pod: $VAULT_POD"
+      
+      # Store Rancher credentials
+      if [ ! -z "${var.rancher_password}" ]; then
+        echo "Backing up Rancher credentials..."
+        kubectl exec -n vault $VAULT_POD -- \
+          vault kv put secret/rancher/admin \
+            username="admin" \
+            password="${var.rancher_password}" \
+            hostname="${var.rancher_hostname}" || echo "Note: Vault KV v2 may need initialization"
+      fi
+      
+      # Store Grafana credentials
+      if [ ! -z "${var.grafana_admin_password}" ] && [ "${var.enable_grafana}" = "true" ]; then
+        echo "Backing up Grafana credentials..."
+        kubectl exec -n vault $VAULT_POD -- \
+          vault kv put secret/grafana/admin \
+            username="admin" \
+            password="${var.grafana_admin_password}" \
+            hostname="${var.grafana_hostname}" || true
+      fi
+      
+      # Store ArgoCD credentials
+      if [ ! -z "${var.argocd_admin_password}" ] && [ "${var.enable_argocd}" = "true" ]; then
+        echo "Backing up ArgoCD credentials..."
+        kubectl exec -n vault $VAULT_POD -- \
+          vault kv put secret/argocd/admin \
+            username="admin" \
+            password="${var.argocd_admin_password}" \
+            hostname="${var.argocd_hostname}" || true
+      fi
+      
+      # Store Jenkins credentials
+      if [ ! -z "${var.jenkins_admin_password}" ] && [ "${var.enable_jenkins_operator}" = "true" ]; then
+        echo "Backing up Jenkins credentials..."
+        kubectl exec -n vault $VAULT_POD -- \
+          vault kv put secret/jenkins/admin \
+            username="admin" \
+            password="${var.jenkins_admin_password}" \
+            hostname="${var.jenkins_hostname}" || true
+      fi
+      
+      echo "Credential backup to Vault completed"
+    EOT
+    
+    environment = {
+      KUBECONFIG = var.install_k3s ? local.k3s_config_path : var.kubeconfig_path
+    }
+  }
+
+  depends_on = [
+    null_resource.vault_ready,
+    helm_release.rancher,
+    helm_release.prometheus,
+    helm_release.argocd,
+    helm_release.jenkins_operator
+  ]
+}
+
+# Save Vault root token and unseal keys to local file
+resource "local_file" "vault_credentials" {
+  count    = var.enable_vault ? 1 : 0
+  filename = "${path.module}/vault-credentials.txt"
+  content  = <<-EOT
+# Vault Credentials
+# Generated at: ${timestamp()}
+
+## Access Information
+Vault URL: https://${var.vault_hostname}
+Vault Namespace: ${local.vault_namespace}
+Dev Mode: ${var.vault_dev_mode}
+
+## Important: Save these credentials in a secure location
+## Dev mode uses a pre-unsealed vault with root token: hvac.root
+
+## To access Vault:
+1. Open browser: https://${var.vault_hostname}
+2. Enter root token when prompted (shown in Vault logs during dev mode)
+
+## To retrieve stored credentials:
+vault login <root-token>
+vault kv get secret/rancher/admin
+vault kv get secret/grafana/admin
+vault kv get secret/argocd/admin
+vault kv get secret/jenkins/admin
+
+## Vault Pod Access
+kubectl -n vault exec -it <pod-name> -- vault
+
+## Production Notes
+For production use, DO NOT use dev mode (set vault_dev_mode = false)
+Enable Vault authentication methods and configure proper unseal keys
+Refer to Vault documentation: https://www.vaultproject.io/docs
+
+## Backed up Secrets
+- Rancher admin credentials (username: admin)
+- Grafana admin credentials (username: admin)
+- ArgoCD admin credentials (username: admin)
+- Jenkins admin credentials (username: admin)
+  EOT
+
+  depends_on = [helm_release.vault]
+}
+

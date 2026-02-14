@@ -3,6 +3,22 @@ output "release_name" {
   value       = helm_release.rancher.name
 }
 
+output "k3s_installed" {
+  description = "Whether k3s was installed"
+  value       = var.install_k3s
+}
+
+output "k3s_kubeconfig_path" {
+  description = "Path to the k3s kubeconfig file"
+  value       = var.install_k3s ? local.k3s_config_path : "not installed"
+}
+
+output "kubeconfig_content" {
+  description = "k3s kubeconfig content for Jenkins credentials store"
+  value       = var.install_k3s ? data.local_file.k3s_kubeconfig[0].content : "not installed"
+  sensitive   = true
+}
+
 output "namespace" {
   description = "Kubernetes namespace where Rancher is deployed"
   value       = helm_release.rancher.namespace
@@ -96,4 +112,29 @@ output "jenkins_admin_user" {
 output "jenkins_namespace" {
   description = "Kubernetes namespace for Jenkins"
   value       = var.enable_jenkins_operator ? kubernetes_namespace.jenkins_operator[0].metadata[0].name : "disabled"
+}
+
+output "vault_status" {
+  description = "Status of Vault Helm release"
+  value       = var.enable_vault ? helm_release.vault[0].status : "disabled"
+}
+
+output "vault_hostname" {
+  description = "Vault access URL"
+  value       = var.enable_vault ? "https://${var.vault_hostname}" : "disabled"
+}
+
+output "vault_namespace" {
+  description = "Kubernetes namespace for Vault"
+  value       = var.enable_vault ? kubernetes_namespace.vault[0].metadata[0].name : "disabled"
+}
+
+output "vault_dev_mode" {
+  description = "Whether Vault is running in dev mode"
+  value       = var.enable_vault ? var.vault_dev_mode : "disabled"
+}
+
+output "vault_credentials_file" {
+  description = "Path to Vault credentials documentation"
+  value       = var.enable_vault ? "${path.module}/vault-credentials.txt" : "disabled"
 }

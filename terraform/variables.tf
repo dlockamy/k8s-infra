@@ -39,6 +39,12 @@ variable "kubeconfig_path" {
   default     = "~/.kube/config"
 }
 
+variable "install_k3s" {
+  description = "Install k3s cluster on the local machine"
+  type        = bool
+  default     = true
+}
+
 variable "ingress_class_name" {
   description = "Ingress class name (e.g., nginx, traefik)"
   type        = string
@@ -166,4 +172,34 @@ variable "jenkins_storage_size" {
   description = "Storage size for Jenkins"
   type        = string
   default     = "20Gi"
+}
+
+variable "enable_vault" {
+  description = "Enable Vault for secrets management"
+  type        = bool
+  default     = true
+}
+
+variable "vault_chart_version" {
+  description = "Version of Vault Helm chart"
+  type        = string
+  default     = "0.27.0"
+}
+
+variable "vault_hostname" {
+  description = "Hostname for Vault ingress"
+  type        = string
+  default     = "vault.example.com"
+}
+
+variable "vault_storage_size" {
+  description = "Storage size for Vault data"
+  type        = string
+  default     = "10Gi"
+}
+
+variable "vault_dev_mode" {
+  description = "Enable Vault dev mode (not for production)"
+  type        = bool
+  default     = true
 }
