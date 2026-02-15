@@ -281,13 +281,13 @@ pipeline {
             echo 'Rancher deployment successful!'
             sh '''
                 export KUBECONFIG=${KUBECONFIG_LOCAL}
-                cd ${TF_DIR}
-                echo "=== Deployment Summary ==="
-                terraform output -json 2>/dev/null | jq -r '
-                  to_entries[] | 
-                  select(.value.value != "disabled") |
-                  "\(.key): \(.value.value)"
-                ' || echo "Outputs not yet available"
+                                cd ${TF_DIR}
+                                echo "=== Deployment Summary ==="
+                                terraform output -json 2>/dev/null | jq -r '
+                                    to_entries[] |
+                                    select(.value.value != "disabled") |
+                                    (.key + ": " + (.value.value|tostring))
+                                ' || echo "Outputs not yet available"
             '''
         }
         failure {
