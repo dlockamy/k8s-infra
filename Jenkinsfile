@@ -467,4 +467,4 @@ pipeline {
             echo 'Rancher deployment failed. Check logs for details.'
         }
     }
-}
+
