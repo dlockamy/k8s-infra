@@ -36,7 +36,7 @@ pipeline {
         )
         booleanParam(
             name: 'INSTALL_K3S',
-            defaultValue: true,
+            defaultValue: false,
             description: 'Whether to install k3s cluster (set false to use existing cluster)'
         )
     }
@@ -189,6 +189,9 @@ pipeline {
         }
 
         stage('Save k3s Config to Jenkins Credentials') {
+            when {
+                expression { return INSTALL_K3S == 'true' }
+            }
             steps {
                 script {
                     echo 'Saving k3s kubeconfig to Jenkins credentials store...'
