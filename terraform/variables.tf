@@ -30,7 +30,7 @@ variable "rancher_password" {
 variable "letsencrypt_email" {
   description = "Email for Let's Encrypt certificate"
   type        = string
-  default     = "admin@example.com"
+  default     = "admin@softsurve.com"
 }
 
 variable "kubeconfig_path" {
@@ -78,13 +78,13 @@ variable "prometheus_chart_version" {
 variable "prometheus_hostname" {
   description = "Hostname for Prometheus ingress"
   type        = string
-  default     = "prometheus.example.com"
+  default     = "prometheus.softsurve.com"
 }
 
 variable "grafana_hostname" {
   description = "Hostname for Grafana ingress"
   type        = string
-  default     = "grafana.example.com"
+  default     = "grafana.softsurve.com"
 }
 
 variable "grafana_admin_password" {
@@ -127,7 +127,7 @@ variable "argocd_chart_version" {
 variable "argocd_hostname" {
   description = "Hostname for ArgoCD ingress"
   type        = string
-  default     = "argocd.example.com"
+  default     = "argocd.softsurve.com"
 }
 
 variable "argocd_replicas" {
@@ -158,7 +158,7 @@ variable "jenkins_operator_chart_version" {
 variable "jenkins_hostname" {
   description = "Hostname for Jenkins ingress"
   type        = string
-  default     = "jenkins.example.com"
+  default     = "jenkins.softsurve.com"
 }
 
 variable "jenkins_admin_password" {
@@ -189,7 +189,7 @@ variable "vault_chart_version" {
 variable "vault_hostname" {
   description = "Hostname for Vault ingress"
   type        = string
-  default     = "vault.example.com"
+  default     = "vault.softsurve.com"
 }
 
 variable "vault_storage_size" {

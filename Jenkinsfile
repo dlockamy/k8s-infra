@@ -49,7 +49,7 @@ pipeline {
         K3S_SSH_USER = "${params.K3S_SSH_USER}"
         K3S_INSTALL_PATH = "${params.K3S_INSTALL_PATH}"
         INSTALL_K3S = "${params.INSTALL_K3S}"
-        KUBECONFIG_LOCAL = "${TF_DIR}/.kube/config"
+        KUBECONFIG_LOCAL = "/home/jbot/.kube/config"
     }
 
     stages {
