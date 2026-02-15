@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'mars'
+        label 'venus'
     }
 
     parameters {
