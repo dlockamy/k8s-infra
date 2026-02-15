@@ -454,13 +454,13 @@ pipeline {
         success {
             echo 'Rancher deployment successful!'
             sh '''
-                cd ${TF_DIR}
-                echo "=== Deployment Summary ==="
-                terraform output -json | jq -r '
-                  to_entries[] | 
-                  select(.value.value != "disabled") |
-                  "\(.key): \(.value.value)"
-                '
+                                cd ${TF_DIR}
+                                echo "=== Deployment Summary ==="
+                                terraform output -json | jq -r '
+                                    to_entries[] |
+                                    select(.value.value != "disabled") |
+                                    (.key + ": " + (.value.value|tostring))
+                                '
             '''
         }
         failure {
