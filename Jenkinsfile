@@ -34,6 +34,11 @@ pipeline {
             defaultValue: '3',
             description: 'Number of Rancher replicas'
         )
+        booleanParam(
+            name: 'INSTALL_K3S',
+            defaultValue: true,
+            description: 'Whether to install k3s cluster (set false to use existing cluster)'
+        )
     }
 
     environment {
@@ -43,6 +48,7 @@ pipeline {
         K3S_HOST = "${params.K3S_HOST}"
         K3S_SSH_USER = "${params.K3S_SSH_USER}"
         K3S_INSTALL_PATH = "${params.K3S_INSTALL_PATH}"
+        INSTALL_K3S = "${params.INSTALL_K3S}"
         KUBECONFIG_LOCAL = "${TF_DIR}/.kube/config"
     }
 
@@ -55,6 +61,9 @@ pipeline {
         }
 
         stage('Install k3s via SSH') {
+            when {
+                expression { return INSTALL_K3S == 'true' }
+            }
             steps {
                 script {
                     echo "Installing k3s on host: ${K3S_HOST} at path: ${K3S_INSTALL_PATH}"
@@ -127,6 +136,9 @@ pipeline {
         }
 
         stage('Extract k3s Kubeconfig') {
+            when {
+                expression { return INSTALL_K3S == 'true' }
+            }
             steps {
                 script {
                     echo 'Extracting k3s kubeconfig...'

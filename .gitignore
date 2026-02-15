@@ -1,0 +1,168 @@
+# Terraform
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+override.tf.json
+crash.log
+crash.*.log
+*.tar.gz
+*.zip
+
+# Terraform local files
+.kube/
+kubeconfig.txt
+vault-credentials.txt
+terraform.tfplan
+tfplan
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.project
+.classpath
+.c9/
+*.sublime-workspace
+*.sublime-project
+
+# Local environment
+.env
+.env.local
+.env.*.local
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.backup
+
+# Jenkins
+.jenkins/
+jenkins-credentials.xml
+jenkins-secrets/
+.jenkinsci
+
+# Kubernetes & Helm
+*.kubeconfig
+kubeconfig
+kubeconfig.yaml
+kubeconfig.yml
+.kube/config*
+helm/charts/
+charts/*/Chart.lock
+**/Chart.lock
+
+# Vault
+vault-unseal-keys.txt
+vault-root-token.txt
+vault-config.hcl
+vault-policy.hcl
+vault/data/
+vault-backup.sql
+
+# SSL/TLS Certificates
+*.crt
+*.cert
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+
+# Logs
+*.log
+logs/
+*.out
+
+# OS files
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Node.js (if used for any scripting)
+node_modules/
+npm-debug.log
+yarn-error.log
+.npm
+
+# Go (if used)
+*.o
+*.a
+*.so
+vendor/
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# Build outputs
+build/
+dist/
+target/
+
+# Personal/sensitive files
+secrets/
+private/
+sensitive-data/
+credentials/
+personal/
+
+# Backup files
+*.backup
+*.bak
+*.old
+*.orig
+
+# Generated files (exclude these from version control)
+generated/
+auto-generated/
+
+# Archive files
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# Test coverage
+coverage/
+.coverage
+htmlcov/
+
+# IDE specific
+.vscode/settings.json
+.idea/workspace.xml
+.idea/tasks.xml
