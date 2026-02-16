@@ -48,7 +48,7 @@ variable "install_k3s" {
 variable "ingress_class_name" {
   description = "Ingress class name (e.g., nginx, traefik)"
   type        = string
-  default     = "nginx"
+  default     = "traefik"
 }
 
 variable "enable_monitoring" {

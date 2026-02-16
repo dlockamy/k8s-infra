@@ -235,8 +235,9 @@ resource "kubernetes_ingress_v1" "rancher" {
     name      = "rancher-ingress"
     namespace = kubernetes_namespace.rancher.metadata[0].name
     annotations = {
-      "cert-manager.io/cluster-issuer"      = "letsencrypt-prod"
-      "nginx.ingress.kubernetes.io/ssl-redirect" = "true"
+      "cert-manager.io/cluster-issuer" = "letsencrypt-prod"
+      "traefik.ingress.kubernetes.io/router.entrypoints" = "websecure"
+      "traefik.ingress.kubernetes.io/router.tls" = "true"
     }
   }
 
@@ -277,8 +278,9 @@ resource "kubernetes_ingress_v1" "prometheus" {
     name      = "prometheus-ingress"
     namespace = kubernetes_namespace.monitoring[0].metadata[0].name
     annotations = {
-      "cert-manager.io/cluster-issuer"      = "letsencrypt-prod"
-      "nginx.ingress.kubernetes.io/ssl-redirect" = "true"
+      "cert-manager.io/cluster-issuer" = "letsencrypt-prod"
+      "traefik.ingress.kubernetes.io/router.entrypoints" = "websecure"
+      "traefik.ingress.kubernetes.io/router.tls" = "true"
     }
   }
 
@@ -319,8 +321,9 @@ resource "kubernetes_ingress_v1" "grafana" {
     name      = "grafana-ingress"
     namespace = kubernetes_namespace.monitoring[0].metadata[0].name
     annotations = {
-      "cert-manager.io/cluster-issuer"      = "letsencrypt-prod"
-      "nginx.ingress.kubernetes.io/ssl-redirect" = "true"
+      "cert-manager.io/cluster-issuer" = "letsencrypt-prod"
+      "traefik.ingress.kubernetes.io/router.entrypoints" = "websecure"
+      "traefik.ingress.kubernetes.io/router.tls" = "true"
     }
   }
 
@@ -411,8 +414,9 @@ resource "kubernetes_ingress_v1" "argocd" {
     name      = "argocd-ingress"
     namespace = kubernetes_namespace.argocd[0].metadata[0].name
     annotations = {
-      "cert-manager.io/cluster-issuer"      = "letsencrypt-prod"
-      "nginx.ingress.kubernetes.io/ssl-redirect" = "true"
+      "cert-manager.io/cluster-issuer" = "letsencrypt-prod"
+      "traefik.ingress.kubernetes.io/router.entrypoints" = "websecure"
+      "traefik.ingress.kubernetes.io/router.tls" = "true"
     }
   }
 
@@ -505,8 +509,9 @@ resource "kubernetes_ingress_v1" "jenkins" {
     name      = "jenkins-ingress"
     namespace = kubernetes_namespace.jenkins_operator[0].metadata[0].name
     annotations = {
-      "cert-manager.io/cluster-issuer"      = "letsencrypt-prod"
-      "nginx.ingress.kubernetes.io/ssl-redirect" = "true"
+      "cert-manager.io/cluster-issuer" = "letsencrypt-prod"
+      "traefik.ingress.kubernetes.io/router.entrypoints" = "websecure"
+      "traefik.ingress.kubernetes.io/router.tls" = "true"
     }
   }
 
@@ -611,8 +616,9 @@ resource "kubernetes_ingress_v1" "vault" {
     name      = "vault-ingress"
     namespace = kubernetes_namespace.vault[0].metadata[0].name
     annotations = {
-      "cert-manager.io/cluster-issuer"      = "letsencrypt-prod"
-      "nginx.ingress.kubernetes.io/ssl-redirect" = "true"
+      "cert-manager.io/cluster-issuer" = "letsencrypt-prod"
+      "traefik.ingress.kubernetes.io/router.entrypoints" = "websecure"
+      "traefik.ingress.kubernetes.io/router.tls" = "true"
     }
   }
 
