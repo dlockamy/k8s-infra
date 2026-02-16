@@ -92,36 +92,6 @@ resource "kubernetes_namespace" "rancher" {
   }
 }
 
-# Generate a self-signed certificate and store it as a TLS secret for Rancher
-resource "null_resource" "rancher_self_signed_cert" {
-  provisioner "local-exec" {
-    command = <<-EOT
-      set -e
-      CERT_DIR="${path.module}/.certs"
-      mkdir -p "$CERT_DIR"
-      CERT_FILE="$CERT_DIR/rancher.crt"
-      KEY_FILE="$CERT_DIR/rancher.key"
-
-      echo "Generating self-signed certificate for ${var.rancher_hostname}..."
-      openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-        -subj "/CN=${var.rancher_hostname}/O=rancher" \
-        -keyout "$KEY_FILE" -out "$CERT_FILE"
-
-      echo "Creating/updating Kubernetes TLS secret 'rancher-tls' in namespace ${var.namespace}"
-      kubectl create namespace ${var.namespace} --dry-run=client -o yaml | kubectl apply -f - || true
-      kubectl create secret tls rancher-tls -n ${var.namespace} --cert="$CERT_FILE" --key="$KEY_FILE" --dry-run=client -o yaml | kubectl apply -f -
-
-      echo "Self-signed TLS secret created"
-    EOT
-
-    environment = {
-      KUBECONFIG = var.install_k3s ? local.k3s_config_path : var.kubeconfig_path
-    }
-  }
-
-  depends_on = [kubernetes_namespace.rancher]
-}
-
 # Deploy Rancher using Helm provider
 resource "helm_release" "rancher" {
   name             = var.release_name
