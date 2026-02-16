@@ -122,7 +122,7 @@ resource "helm_release" "rancher" {
   wait     = true
   timeout  = 600 # 10 minutes
 
-  depends_on = [kubernetes_namespace.rancher
+  depends_on = [kubernetes_namespace.rancher]
 }
 
 # Create monitoring namespace
