@@ -26,7 +26,7 @@ pipeline {
         )
         password(
             name: 'RANCHER_PASSWORD',
-            defaultValue: '',
+            defaultValue: 'password',
             description: 'Bootstrap password for Rancher admin'
         )
         string(
