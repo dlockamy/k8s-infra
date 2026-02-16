@@ -107,7 +107,21 @@ resource "helm_release" "cert_manager" {
 resource "null_resource" "cert_manager_issuer" {
   provisioner "local-exec" {
     command = <<-EOT
-      cat <<EOF | kubectl apply -f -
+      set -e
+
+      # Wait for Kubernetes API to be reachable
+      echo "Waiting for Kubernetes API..."
+      for i in {1..60}; do
+        if kubectl version --short >/dev/null 2>&1; then
+          echo "Kubernetes API is reachable"
+          break
+        fi
+        echo "Kubernetes API not ready, retrying... ($i/60)"
+        sleep 2
+      done
+
+      # Apply ClusterIssuer using --validate=false to avoid openapi lookup issues during CRD bootstrapping
+      cat <<EOF | kubectl apply --validate=false -f -
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
