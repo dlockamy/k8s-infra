@@ -84,59 +84,34 @@ provider "helm" {
   }
 }
 
-# Install cert-manager (required for Let's Encrypt issuers)
-resource "helm_release" "cert_manager" {
-  name             = "cert-manager"
-  repository       = "https://charts.jetstack.io"
-  chart            = "cert-manager"
-  namespace        = "cert-manager"
-  create_namespace = true
 
-  values = [
-    yamlencode({
-      installCRDs = true
-      # Optionally tune resources here
-    })
-  ]
-
-  wait    = true
-  timeout = 600
+# Create namespace
+resource "kubernetes_namespace" "rancher" {
+  metadata {
+    name = var.namespace
+  }
 }
 
-# Create a ClusterIssuer for Let's Encrypt (production)
-resource "null_resource" "cert_manager_issuer" {
+# Generate a self-signed certificate and store it as a TLS secret for Rancher
+resource "null_resource" "rancher_self_signed_cert" {
   provisioner "local-exec" {
     command = <<-EOT
       set -e
+      CERT_DIR="${path.module}/.certs"
+      mkdir -p "$CERT_DIR"
+      CERT_FILE="$CERT_DIR/rancher.crt"
+      KEY_FILE="$CERT_DIR/rancher.key"
 
-      # Wait for Kubernetes API to be reachable
-      echo "Waiting for Kubernetes API..."
-      for i in {1..60}; do
-        if kubectl version --short >/dev/null 2>&1; then
-          echo "Kubernetes API is reachable"
-          break
-        fi
-        echo "Kubernetes API not ready, retrying... ($i/60)"
-        sleep 2
-      done
+      echo "Generating self-signed certificate for ${var.rancher_hostname}..."
+      openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+        -subj "/CN=${var.rancher_hostname}/O=rancher" \
+        -keyout "$KEY_FILE" -out "$CERT_FILE"
 
-      # Apply ClusterIssuer using --validate=false to avoid openapi lookup issues during CRD bootstrapping
-      cat <<EOF | kubectl apply --validate=false -f -
-apiVersion: cert-manager.io/v1
-kind: ClusterIssuer
-metadata:
-  name: letsencrypt-prod
-spec:
-  acme:
-    server: https://acme-v02.api.letsencrypt.org/directory
-    email: ${var.letsencrypt_email}
-    privateKeySecretRef:
-      name: letsencrypt-prod
-    solvers:
-    - http01:
-        ingress:
-          class: ${var.ingress_class_name}
-EOF
+      echo "Creating/updating Kubernetes TLS secret 'rancher-tls' in namespace ${var.namespace}"
+      kubectl create namespace ${var.namespace} --dry-run=client -o yaml | kubectl apply -f - || true
+      kubectl create secret tls rancher-tls -n ${var.namespace} --cert="$CERT_FILE" --key="$KEY_FILE" --dry-run=client -o yaml | kubectl apply -f -
+
+      echo "Self-signed TLS secret created"
     EOT
 
     environment = {
@@ -144,14 +119,7 @@ EOF
     }
   }
 
-  depends_on = [helm_release.cert_manager]
-}
-
-# Create namespace
-resource "kubernetes_namespace" "rancher" {
-  metadata {
-    name = var.namespace
-  }
+  depends_on = [kubernetes_namespace.rancher]
 }
 
 # Deploy Rancher using Helm provider
@@ -172,11 +140,7 @@ resource "helm_release" "rancher" {
       }
 
       # Additional recommended settings
-      tls = "ingress"
-    
-      letsEncrypt = {
-        email = var.letsencrypt_email
-      }
+      tls = "secret"
       
       # Monitoring
       prometheus = {
@@ -188,7 +152,7 @@ resource "helm_release" "rancher" {
   wait     = true
   timeout  = 600 # 10 minutes
 
-  depends_on = [kubernetes_namespace.rancher, helm_release.cert_manager, null_resource.cert_manager_issuer]
+  depends_on = [kubernetes_namespace.rancher, null_resource.rancher_self_signed_cert]
 }
 
 # Create monitoring namespace
@@ -249,7 +213,6 @@ resource "kubernetes_ingress_v1" "rancher" {
     name      = "rancher-ingress"
     namespace = kubernetes_namespace.rancher.metadata[0].name
     annotations = {
-      "cert-manager.io/cluster-issuer" = "letsencrypt-prod"
       "traefik.ingress.kubernetes.io/router.entrypoints" = "websecure"
       "traefik.ingress.kubernetes.io/router.tls" = "true"
     }
@@ -292,7 +255,6 @@ resource "kubernetes_ingress_v1" "prometheus" {
     name      = "prometheus-ingress"
     namespace = kubernetes_namespace.monitoring[0].metadata[0].name
     annotations = {
-      "cert-manager.io/cluster-issuer" = "letsencrypt-prod"
       "traefik.ingress.kubernetes.io/router.entrypoints" = "websecure"
       "traefik.ingress.kubernetes.io/router.tls" = "true"
     }
@@ -335,7 +297,6 @@ resource "kubernetes_ingress_v1" "grafana" {
     name      = "grafana-ingress"
     namespace = kubernetes_namespace.monitoring[0].metadata[0].name
     annotations = {
-      "cert-manager.io/cluster-issuer" = "letsencrypt-prod"
       "traefik.ingress.kubernetes.io/router.entrypoints" = "websecure"
       "traefik.ingress.kubernetes.io/router.tls" = "true"
     }
@@ -428,7 +389,6 @@ resource "kubernetes_ingress_v1" "argocd" {
     name      = "argocd-ingress"
     namespace = kubernetes_namespace.argocd[0].metadata[0].name
     annotations = {
-      "cert-manager.io/cluster-issuer" = "letsencrypt-prod"
       "traefik.ingress.kubernetes.io/router.entrypoints" = "websecure"
       "traefik.ingress.kubernetes.io/router.tls" = "true"
     }
@@ -523,7 +483,6 @@ resource "kubernetes_ingress_v1" "jenkins" {
     name      = "jenkins-ingress"
     namespace = kubernetes_namespace.jenkins_operator[0].metadata[0].name
     annotations = {
-      "cert-manager.io/cluster-issuer" = "letsencrypt-prod"
       "traefik.ingress.kubernetes.io/router.entrypoints" = "websecure"
       "traefik.ingress.kubernetes.io/router.tls" = "true"
     }
@@ -630,7 +589,6 @@ resource "kubernetes_ingress_v1" "vault" {
     name      = "vault-ingress"
     namespace = kubernetes_namespace.vault[0].metadata[0].name
     annotations = {
-      "cert-manager.io/cluster-issuer" = "letsencrypt-prod"
       "traefik.ingress.kubernetes.io/router.entrypoints" = "websecure"
       "traefik.ingress.kubernetes.io/router.tls" = "true"
     }
