@@ -21,7 +21,7 @@ pipeline {
         )
         string(
             name: 'RANCHER_HOSTNAME',
-            defaultValue: '',
+            defaultValue: 'rancher.softsurve.com',
             description: 'Rancher FQDN (e.g., rancher.example.com)'
         )
         password(

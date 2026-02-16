@@ -84,6 +84,55 @@ provider "helm" {
   }
 }
 
+# Install cert-manager (required for Let's Encrypt issuers)
+resource "helm_release" "cert_manager" {
+  name             = "cert-manager"
+  repository       = "https://charts.jetstack.io"
+  chart            = "cert-manager"
+  namespace        = "cert-manager"
+  create_namespace = true
+
+  values = [
+    yamlencode({
+      installCRDs = true
+      # Optionally tune resources here
+    })
+  ]
+
+  wait    = true
+  timeout = 600
+}
+
+# Create a ClusterIssuer for Let's Encrypt (production)
+resource "null_resource" "cert_manager_issuer" {
+  provisioner "local-exec" {
+    command = <<-EOT
+      cat <<EOF | kubectl apply -f -
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: ${var.letsencrypt_email}
+    privateKeySecretRef:
+      name: letsencrypt-prod
+    solvers:
+    - http01:
+        ingress:
+          class: ${var.ingress_class_name}
+EOF
+    EOT
+
+    environment = {
+      KUBECONFIG = var.install_k3s ? local.k3s_config_path : var.kubeconfig_path
+    }
+  }
+
+  depends_on = [helm_release.cert_manager]
+}
+
 # Create namespace
 resource "kubernetes_namespace" "rancher" {
   metadata {
@@ -125,7 +174,7 @@ resource "helm_release" "rancher" {
   wait     = true
   timeout  = 600 # 10 minutes
 
-  depends_on = [kubernetes_namespace.rancher]
+  depends_on = [kubernetes_namespace.rancher, helm_release.cert_manager, null_resource.cert_manager_issuer]
 }
 
 # Create monitoring namespace
