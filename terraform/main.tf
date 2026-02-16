@@ -106,13 +106,11 @@ resource "helm_release" "rancher" {
       bootstrapPassword = var.rancher_password
       ingress = {
         enabled = true
-      #}
-
-        # Additional recommended settings
-        tls = {
-          source = "letsEncrypt"
-        }
       }
+
+      # Additional recommended settings
+      tls = "ingress"
+    
       letsEncrypt = {
         email = var.letsencrypt_email
       }
